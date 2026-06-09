@@ -681,6 +681,11 @@ body {
     var(--cobre);
   box-shadow: inset 0 -2px 4px rgba(0, 0, 0, 0.4);
 }
+.login-iniciais svg {
+  width: 22px;
+  height: 22px;
+  display: block;
+}
 
 /* ===================== USUÁRIO LOGADO ===================== */
 
@@ -796,10 +801,11 @@ body {
   gap: 0.3rem;
 }
 .chip {
+  position: relative;
   display: grid;
   place-items: center;
-  width: 26px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   font-family: var(--fonte-titulo);
   font-size: 0.66rem;
@@ -808,6 +814,12 @@ body {
   background: radial-gradient(circle at 34% 30%, rgba(255, 255, 255, 0.25), transparent 45%),
     var(--tinta-suave);
   box-shadow: inset 0 -1px 2px rgba(0, 0, 0, 0.4);
+  cursor: default;
+}
+.chip svg {
+  width: 17px;
+  height: 17px;
+  display: block;
 }
 .chip.eu {
   color: #1a1008;
@@ -815,6 +827,51 @@ body {
     var(--ouro-claro);
   box-shadow: 0 0 0 2px var(--ouro);
 }
+
+/* legenda (nome) ao passar o mouse sobre o ícone */
+.chip::after {
+  content: attr(data-nome);
+  position: absolute;
+  bottom: calc(100% + 7px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  white-space: nowrap;
+  padding: 0.28rem 0.55rem;
+  font-family: var(--fonte-titulo);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--pergaminho);
+  background: rgba(20, 13, 6, 0.96);
+  border: 1px solid rgba(194, 146, 47, 0.5);
+  border-radius: 4px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.45);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  z-index: 20;
+}
+/* setinha da legenda */
+.chip::before {
+  content: "";
+  position: absolute;
+  bottom: calc(100% + 2px);
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: rgba(194, 146, 47, 0.6);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+  z-index: 20;
+}
+.chip:hover::after,
+.chip:focus-visible::after {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+.chip:hover::before,
+.chip:focus-visible::before { opacity: 1; }
 
 /* missão mais marcada pelo grupo */
 .cartaz.destaque {

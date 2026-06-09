@@ -170,11 +170,29 @@ function idDaMissao(titulo) {
     .replace(/^-+|-+$/g, "");
 }
 
-/* Iniciais do aventureiro, para o "crachá" de quem marcou. */
+/* Iniciais do aventureiro, usadas como reserva se não houver ícone. */
 function iniciais(nome) {
   const partes = String(nome).trim().split(/\s+/);
   if (partes.length === 1) return partes[0].slice(0, 2).toUpperCase();
   return (partes[0][0] + partes[1][0]).toUpperCase();
+}
+
+/* Ícone (brasão) de cada aventureiro. SVGs em "currentColor" para herdar
+   a cor do crachá. Para mudar o ícone de alguém, edite o SVG aqui. */
+const ICONES = {
+  // Behrtio — caveira
+  Behrtio: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3C8 3 5 6 5 9.8c0 2 .9 3.8 2.3 5 .4.4.7.9.7 1.5V18c0 .6.4 1 1 1h8c.6 0 1-.4 1-1v-1.7c0-.6.3-1.1.7-1.5C19.1 13.6 20 11.8 20 9.8 20 6 17 3 12 3z"/><circle cx="9.2" cy="11" r="1.6" fill="currentColor" stroke="none"/><circle cx="14.8" cy="11" r="1.6" fill="currentColor" stroke="none"/><path d="M12 13.2l-.9 1.6h1.8z" fill="currentColor" stroke="none"/><path d="M10 19v-2M14 19v-2M12 19v-2.4"/></svg>`,
+  // Lydia Alnari — alaúde
+  "Lydia Alnari": `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="15.2" r="5.4"/><circle cx="9" cy="15.2" r="1.3"/><path d="M12.9 11.4 18.6 5.7"/><path d="M17.2 3.6 21 7.4l-1.9 1.1-2-2z" fill="currentColor" stroke="none"/></svg>`,
+  // Mist Yavallan — livro
+  "Mist Yavallan": `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 3H18a1 1 0 0 1 1 1v14.5a1 1 0 0 1-1 1H6.5A1.5 1.5 0 0 1 5 18V4.5A1.5 1.5 0 0 1 6.5 3z"/><path d="M5 18a1.5 1.5 0 0 1 1.5-1.5H19"/><path d="M9 7h6M9 10h4"/></svg>`,
+  // Valka Calen — escudo de paladino
+  "Valka Calen": `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 2.4v4.8c0 4.5-3 7.9-7 9.6-4-1.7-7-5.1-7-9.6V5.4z"/><path d="M12 7.2v8.2M8.4 11.2h7.2"/></svg>`,
+};
+
+/* Devolve o SVG do aventureiro, ou as iniciais se ele não tiver ícone. */
+function iconeDe(nome) {
+  return ICONES[nome] || escapeHTML(iniciais(nome));
 }
 
 function pips(nivel) {
@@ -374,9 +392,9 @@ function aplicarMarcacoes(dados) {
           (nome) =>
             `<span class="chip ${
               nome === usuarioAtual ? "eu" : ""
-            }" title="${escapeHTML(nome)}">${escapeHTML(
-              iniciais(nome)
-            )}</span>`
+            }" data-nome="${escapeHTML(nome)}" aria-label="${escapeHTML(
+              nome
+            )}">${iconeDe(nome)}</span>`
         )
         .join("");
       const rotulo =
@@ -404,8 +422,8 @@ function montarLogin() {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "login-nome";
-    btn.innerHTML = `<span class="login-iniciais">${escapeHTML(
-      iniciais(nome)
+    btn.innerHTML = `<span class="login-iniciais">${iconeDe(
+      nome
     )}</span><span>${escapeHTML(nome)}</span>`;
     btn.addEventListener("click", () => entrar(nome));
     li.appendChild(btn);

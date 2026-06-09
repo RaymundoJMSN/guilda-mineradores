@@ -20,6 +20,18 @@
   <!-- Atmosfera: vinheta e textura sobre a madeira -->
   <div class="vinheta" aria-hidden="true"></div>
 
+  <!-- Tela de "login": escolha de aventureiro (preenchida por missions.js) -->
+  <div class="login-overlay" id="loginOverlay" hidden>
+    <div class="login-cartaz">
+      <div class="furo furo-esq"></div>
+      <div class="furo furo-dir"></div>
+      <p class="login-sobre">⛏ Guilda de Mineradores ⛏</p>
+      <h2 class="login-titulo">Quem é você?</h2>
+      <p class="login-sub">Selecione seu nome para entrar no Quadro de Missões.</p>
+      <ul class="login-lista" id="loginLista"></ul>
+    </div>
+  </div>
+
   <header class="cabecalho">
     <div class="brasao" aria-hidden="true">
       <svg viewBox="0 0 100 110" width="92" height="100">
@@ -51,6 +63,16 @@
       <span></span>✠<span></span>
     </div>
     <p class="contador" id="contador">Carregando o pergaminho…</p>
+
+    <!-- Quem está logado (preenchido por missions.js) -->
+    <div class="usuario-atual" id="usuarioAtual" hidden>
+      <span class="usuario-rotulo">Aventureiro(a):</span>
+      <strong class="usuario-nome" id="usuarioNome"></strong>
+      <button type="button" class="trocar-usuario" id="trocarUsuario">trocar</button>
+    </div>
+    <p class="aviso-offline" id="avisoOffline" hidden>
+      Modo local: suas marcações ficam só neste aparelho (Firebase não configurado).
+    </p>
   </header>
 
   <main class="quadro" id="quadro">
@@ -67,6 +89,6 @@
     </p>
   </footer>
 
-  <script src="missions.js"></script>
+  <script type="module" src="missions.js"></script>
 </body>
 </html>

@@ -1,3 +1,14 @@
+/* (não precisa mexer) bibliotecas do Firebase, carregadas da CDN do Google */
+import { firebaseConfig } from "./firebase-config.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+import {
+  getDatabase,
+  ref,
+  onValue,
+  set,
+  remove,
+} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
+
 /* ============================================================
    QUADRO DE MISSÕES — Guilda de Aventureiros
    ------------------------------------------------------------
@@ -16,6 +27,9 @@
 
    Dica: o nível de perigo controla a cor do selo de cera:
      1 = verde   2 = amarelo   3 = laranja   4 = vermelho   5 = negro
+
+   ATENÇÃO: cada missão é identificada pelo seu título para guardar as
+   marcações. Se você renomear uma missão, as marcações dela recomeçam.
    ============================================================ */
 
 const MISSOES = [
@@ -112,6 +126,17 @@ const MISSOES = [
 ];
 
 /* ============================================================
+   AVENTUREIROS que podem fazer "login" (escolher quem são).
+   Para adicionar/remover alguém, edite esta lista.
+   ============================================================ */
+const AVENTUREIROS = [
+  "Behrtio",
+  "Lydia Alnari",
+  "Mist Yavallan",
+  "Valka Calen",
+];
+
+/* ============================================================
    Daqui pra baixo é o motor de renderização.
    Você NÃO precisa mexer nada abaixo desta linha.
    ============================================================ */
@@ -124,11 +149,32 @@ const PERIGO_INFO = {
   5: { nome: "Lendário", classe: "perigo-5" },
 };
 
+const CHAVE_USUARIO = "guilda_usuario";
+const CHAVE_MARCACOES_LOCAL = "guilda_marcacoes";
+
 function escapeHTML(str) {
   return String(str)
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
+}
+
+/* Gera um identificador estável e seguro (para chave do Firebase) a partir
+   do título da missão. Remove acentos e caracteres proibidos (. $ # [ ] /). */
+function idDaMissao(titulo) {
+  return String(titulo)
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+/* Iniciais do aventureiro, para o "crachá" de quem marcou. */
+function iniciais(nome) {
+  const partes = String(nome).trim().split(/\s+/);
+  if (partes.length === 1) return partes[0].slice(0, 2).toUpperCase();
+  return (partes[0][0] + partes[1][0]).toUpperCase();
 }
 
 function pips(nivel) {
@@ -139,14 +185,90 @@ function pips(nivel) {
   return out;
 }
 
+/* ------------------------------------------------------------
+   ARMAZENAMENTO DAS MARCAÇÕES
+   Duas implementações com a mesma interface:
+     - assinar(callback): recebe o objeto { idMissao: { nome: true } }
+     - alternar(idMissao, nome, ligar): marca/desmarca
+   Usa o Firebase se houver configuração válida; senão, modo local.
+   ------------------------------------------------------------ */
+
+function configValida() {
+  return (
+    firebaseConfig &&
+    typeof firebaseConfig.databaseURL === "string" &&
+    firebaseConfig.databaseURL.startsWith("http") &&
+    !firebaseConfig.databaseURL.includes("COLE-AQUI")
+  );
+}
+
+function criarArmazenamentoLocal() {
+  function ler() {
+    try {
+      return JSON.parse(localStorage.getItem(CHAVE_MARCACOES_LOCAL)) || {};
+    } catch {
+      return {};
+    }
+  }
+  function salvar(dados) {
+    localStorage.setItem(CHAVE_MARCACOES_LOCAL, JSON.stringify(dados));
+  }
+  let ouvinte = null;
+  return {
+    compartilhado: false,
+    assinar(callback) {
+      ouvinte = callback;
+      callback(ler());
+      // sincroniza entre abas do mesmo navegador
+      window.addEventListener("storage", (e) => {
+        if (e.key === CHAVE_MARCACOES_LOCAL) callback(ler());
+      });
+    },
+    alternar(idMissao, nome, ligar) {
+      const dados = ler();
+      dados[idMissao] = dados[idMissao] || {};
+      if (ligar) dados[idMissao][nome] = true;
+      else delete dados[idMissao][nome];
+      if (Object.keys(dados[idMissao]).length === 0) delete dados[idMissao];
+      salvar(dados);
+      if (ouvinte) ouvinte(dados);
+    },
+  };
+}
+
+function criarArmazenamentoFirebase() {
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+  return {
+    compartilhado: true,
+    assinar(callback) {
+      onValue(ref(db, "marcacoes"), (snap) => callback(snap.val() || {}));
+    },
+    alternar(idMissao, nome, ligar) {
+      const alvo = ref(db, `marcacoes/${idMissao}/${nome}`);
+      if (ligar) set(alvo, true);
+      else remove(alvo);
+    },
+  };
+}
+
+/* ------------------------------------------------------------ */
+
+let usuarioAtual = null;
+let armazenamento = null;
+let ultimasMarcacoes = {};
+const cartoes = []; // { id, indice, el, btn, marcadoresEl }
+
 function criarCartaz(m, indice) {
   const nivel = Math.min(5, Math.max(1, parseInt(m.perigo, 10) || 1));
   const info = PERIGO_INFO[nivel];
   const concluida = (m.status || "aberta") === "concluida";
+  const id = idDaMissao(m.titulo);
 
   const el = document.createElement("article");
   el.className = `cartaz ${concluida ? "concluida" : ""}`;
   el.style.setProperty("--delay", `${indice * 90}ms`);
+  el.dataset.id = id;
 
   el.innerHTML = `
     <div class="furo furo-esq"></div>
@@ -187,26 +309,199 @@ function criarCartaz(m, indice) {
       </div>
     </div>
 
+    <div class="cartaz-grupo">
+      <button type="button" class="btn-marcar" aria-pressed="false">
+        <span class="btn-marcar-icone">⛏</span>
+        <span class="btn-marcar-txt">Quero fazer</span>
+      </button>
+      <div class="marcadores" aria-live="polite"></div>
+    </div>
+
     ${concluida ? '<div class="carimbo-concluida">CONCLUÍDA</div>' : ""}
   `;
+
+  const btn = el.querySelector(".btn-marcar");
+  const marcadoresEl = el.querySelector(".marcadores");
+
+  btn.addEventListener("click", () => {
+    if (!usuarioAtual || !armazenamento) return;
+    const marcados = ultimasMarcacoes[id] || {};
+    const jaMarcado = !!marcados[usuarioAtual];
+    armazenamento.alternar(id, usuarioAtual, !jaMarcado);
+  });
+
+  cartoes.push({ id, indice, el, btn, marcadoresEl });
   return el;
 }
 
-function renderizar() {
+/* Atualiza a UI de marcações de cada cartaz e reordena (mais marcados em
+   cima). A reordenação usa a propriedade CSS "order" do grid, então não
+   recria os cartazes nem reinicia as animações. */
+function aplicarMarcacoes(dados) {
+  ultimasMarcacoes = dados || {};
+
+  // ordena: mais marcações primeiro; empate mantém a ordem original
+  const ranking = cartoes
+    .map((c) => ({
+      c,
+      n: Object.keys(ultimasMarcacoes[c.id] || {}).length,
+    }))
+    .sort((a, b) => b.n - a.n || a.c.indice - b.c.indice);
+
+  ranking.forEach(({ c, n }, posicao) => {
+    c.el.style.order = String(posicao);
+
+    const marcados = Object.keys(ultimasMarcacoes[c.id] || {});
+    const euMarquei = usuarioAtual && marcados.includes(usuarioAtual);
+
+    // botão
+    c.btn.classList.toggle("ativo", !!euMarquei);
+    c.btn.setAttribute("aria-pressed", euMarquei ? "true" : "false");
+    c.btn.querySelector(".btn-marcar-txt").textContent = euMarquei
+      ? "Vou nessa!"
+      : "Quero fazer";
+    c.btn.disabled = !usuarioAtual;
+
+    // crachás de quem marcou
+    if (marcados.length === 0) {
+      c.marcadoresEl.innerHTML =
+        '<span class="marcadores-vazio">Ninguém marcou ainda</span>';
+    } else {
+      const chips = marcados
+        .slice()
+        .sort()
+        .map(
+          (nome) =>
+            `<span class="chip ${
+              nome === usuarioAtual ? "eu" : ""
+            }" title="${escapeHTML(nome)}">${escapeHTML(
+              iniciais(nome)
+            )}</span>`
+        )
+        .join("");
+      const rotulo =
+        marcados.length === 1 ? "1 interessado" : `${marcados.length} interessados`;
+      c.marcadoresEl.innerHTML =
+        `<span class="marcadores-contagem">${rotulo}</span>` +
+        `<span class="marcadores-chips">${chips}</span>`;
+    }
+
+    // destaque para a missão mais marcada (com pelo menos 1)
+    c.el.classList.toggle("destaque", n > 0 && posicao === 0);
+  });
+}
+
+/* ------------------------------------------------------------
+   LOGIN (escolha do aventureiro), lembrado no localStorage.
+   ------------------------------------------------------------ */
+
+function montarLogin() {
+  const lista = document.getElementById("loginLista");
+  if (!lista) return;
+  lista.innerHTML = "";
+  AVENTUREIROS.forEach((nome) => {
+    const li = document.createElement("li");
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "login-nome";
+    btn.innerHTML = `<span class="login-iniciais">${escapeHTML(
+      iniciais(nome)
+    )}</span><span>${escapeHTML(nome)}</span>`;
+    btn.addEventListener("click", () => entrar(nome));
+    li.appendChild(btn);
+    lista.appendChild(li);
+  });
+}
+
+function entrar(nome) {
+  usuarioAtual = nome;
+  try {
+    localStorage.setItem(CHAVE_USUARIO, nome);
+  } catch {}
+  atualizarBadgeUsuario();
+  document.getElementById("loginOverlay").hidden = true;
+  // reaplica para refletir "minhas" marcações no novo usuário
+  aplicarMarcacoes(ultimasMarcacoes);
+}
+
+function mostrarLogin() {
+  document.getElementById("loginOverlay").hidden = false;
+}
+
+function atualizarBadgeUsuario() {
+  const badge = document.getElementById("usuarioAtual");
+  const nomeEl = document.getElementById("usuarioNome");
+  if (usuarioAtual) {
+    nomeEl.textContent = usuarioAtual;
+    badge.hidden = false;
+  } else {
+    badge.hidden = true;
+  }
+}
+
+function trocarUsuario() {
+  usuarioAtual = null;
+  try {
+    localStorage.removeItem(CHAVE_USUARIO);
+  } catch {}
+  atualizarBadgeUsuario();
+  aplicarMarcacoes(ultimasMarcacoes);
+  mostrarLogin();
+}
+
+/* ------------------------------------------------------------ */
+
+function inicializar() {
   const quadro = document.getElementById("quadro");
   const contador = document.getElementById("contador");
   if (!quadro) return;
 
+  // renderiza os cartazes uma única vez
   quadro.innerHTML = "";
-  const abertas = MISSOES.filter((m) => (m.status || "aberta") !== "concluida");
-
   MISSOES.forEach((m, i) => quadro.appendChild(criarCartaz(m, i)));
 
+  const abertas = MISSOES.filter(
+    (m) => (m.status || "aberta") !== "concluida"
+  );
   if (contador) {
     const n = abertas.length;
     contador.textContent =
       n === 1 ? "1 missão disponível" : `${n} missões disponíveis`;
   }
+
+  // login lembrado?
+  montarLogin();
+  let salvo = null;
+  try {
+    salvo = localStorage.getItem(CHAVE_USUARIO);
+  } catch {}
+  if (salvo && AVENTUREIROS.includes(salvo)) {
+    usuarioAtual = salvo;
+    atualizarBadgeUsuario();
+  } else {
+    mostrarLogin();
+  }
+  document
+    .getElementById("trocarUsuario")
+    .addEventListener("click", trocarUsuario);
+
+  // armazenamento (Firebase ou local) + aviso de modo
+  if (configValida()) {
+    try {
+      armazenamento = criarArmazenamentoFirebase();
+    } catch (e) {
+      console.error("Falha ao iniciar o Firebase, usando modo local:", e);
+      armazenamento = criarArmazenamentoLocal();
+    }
+  } else {
+    armazenamento = criarArmazenamentoLocal();
+  }
+  if (!armazenamento.compartilhado) {
+    document.getElementById("avisoOffline").hidden = false;
+  }
+
+  armazenamento.assinar(aplicarMarcacoes);
 }
 
-document.addEventListener("DOMContentLoaded", renderizar);
+/* scripts type="module" já rodam com o DOM pronto */
+inicializar();

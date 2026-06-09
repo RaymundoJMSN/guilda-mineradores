@@ -542,6 +542,11 @@ body {
 /* ============================ MOBILE ============================ */
 
 @media (max-width: 640px) {
+  /* sem animações no celular: cartazes, selos e textos aparecem direto */
+  *, *::before, *::after {
+    animation: none !important;
+  }
+
   .quadro {
     grid-template-columns: 1fr;
     gap: 1.6rem;

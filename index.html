@@ -6,6 +6,11 @@
   <title>Guilda de Mineradores — Quadro de Missões</title>
   <meta name="description" content="Quadro oficial de missões da Guilda de Mineradores. Veja os contratos disponíveis, recompensas e níveis de perigo." />
 
+  <!-- Favicon: brasão da guilda -->
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <link rel="apple-touch-icon" href="favicon.svg" />
+  <meta name="theme-color" content="#241608" />
+
   <!-- Fontes medievais -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -40,20 +45,21 @@
               fill="none" stroke="currentColor" stroke-width="3"/>
         <path d="M50 16 L82 27 V57 C82 77 67 90 50 95 C33 90 18 77 18 57 V27 Z"
               fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.55"/>
-        <!-- Picaretas cruzadas -->
-        <g stroke="currentColor" stroke-width="3.4" stroke-linecap="round" fill="none">
-          <line x1="30" y1="80" x2="70" y2="34"/>
-          <line x1="70" y1="80" x2="30" y2="34"/>
+        <!-- Picaretas cruzadas (cada uma = cabo + cabeça curva pontuda) -->
+        <g transform="rotate(45 50 58)">
+          <rect x="48.6" y="33" width="2.8" height="52" rx="1.4" fill="currentColor"/>
+          <path d="M30 43 Q50 25 70 43 Q50 33 30 43 Z" fill="currentColor"/>
         </g>
-        <!-- Cabeças das picaretas -->
-        <path d="M22 30 C30 25 38 25 46 30 C40 33 30 33 22 30 Z"
-              fill="currentColor"/>
-        <path d="M78 30 C70 25 62 25 54 30 C60 33 70 33 78 30 Z"
-              fill="currentColor"/>
-        <!-- Gema / minério central -->
-        <path d="M50 50 L57 58 L50 72 L43 58 Z" fill="currentColor"/>
-        <path d="M50 50 L57 58 L50 72 L43 58 Z" fill="#1a1008" opacity="0.35"/>
-        <path d="M43 58 L57 58 M50 50 L50 72" stroke="#1a1008" stroke-width="1" opacity="0.5"/>
+        <g transform="rotate(-45 50 58)">
+          <rect x="48.6" y="33" width="2.8" height="52" rx="1.4" fill="currentColor"/>
+          <path d="M30 43 Q50 25 70 43 Q50 33 30 43 Z" fill="currentColor"/>
+        </g>
+        <!-- Rebite onde os cabos se cruzam -->
+        <circle cx="50" cy="58" r="3.4" fill="#1a1008" opacity="0.45"/>
+        <circle cx="50" cy="58" r="2.1" fill="currentColor"/>
+        <!-- Gema / minério abaixo do cruzamento -->
+        <path d="M50 75 L54.5 81 L50 90 L45.5 81 Z" fill="currentColor"/>
+        <path d="M45.5 81 H54.5 M50 75 V90" stroke="#1a1008" stroke-width="0.8" opacity="0.5"/>
       </svg>
     </div>
     <p class="sobre-titulo">⛏ Por ordem da ⛏</p>

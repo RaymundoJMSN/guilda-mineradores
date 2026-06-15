@@ -15,9 +15,16 @@
          "marcacoes": {
            ".read": true,
            ".write": true
+         },
+         "concluidas": {
+           ".read": true,
+           ".write": true
          }
        }
      }
+
+   (O ramo "concluidas" guarda as missões marcadas como cumpridas pelo
+   Mestre — precisa estar liberado junto com "marcacoes".)
    ============================================================ */
 
 export const firebaseConfig = {

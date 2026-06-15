@@ -23,10 +23,12 @@ import {
      descricao   -> texto livre
      perigo      -> número de 1 a 5 (define a cor do selo)
      recompensa  -> texto livre (ex: "T$ 500", "a definir")
-     status      -> "aberta" ou "concluida" (opcional, padrão "aberta")
 
    Dica: o nível de perigo controla a cor do selo de cera:
      1 = verde   2 = amarelo   3 = laranja   4 = vermelho   5 = negro
+
+   OBS: marcar uma missão como "cumprida" é feito DENTRO do site, pelo
+   Mestre (login com a coroa) — não precisa editar nada aqui.
 
    ATENÇÃO: cada missão é identificada pelo seu título para guardar as
    marcações. Se você renomear uma missão, as marcações dela recomeçam.
@@ -128,12 +130,17 @@ const MISSOES = [
 /* ============================================================
    AVENTUREIROS que podem fazer "login" (escolher quem são).
    Para adicionar/remover alguém, edite esta lista.
+
+   O "Mestre" (MESTRE abaixo) é especial: além de votar, pode marcar
+   missões como cumpridas / reabri-las. Tem o símbolo de coroa.
    ============================================================ */
+const MESTRE = "Mestre";
 const AVENTUREIROS = [
   "Behrtio",
   "Lydia Alnari",
   "Mist Yavallan",
   "Valka Calen",
+  MESTRE,
 ];
 
 /* ============================================================
@@ -150,7 +157,7 @@ const PERIGO_INFO = {
 };
 
 const CHAVE_USUARIO = "guilda_usuario";
-const CHAVE_MARCACOES_LOCAL = "guilda_marcacoes";
+const CHAVE_DADOS_LOCAL = "guilda_dados";
 
 function escapeHTML(str) {
   return String(str)
@@ -188,11 +195,18 @@ const ICONES = {
   "Mist Yavallan": `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 3H18a1 1 0 0 1 1 1v14.5a1 1 0 0 1-1 1H6.5A1.5 1.5 0 0 1 5 18V4.5A1.5 1.5 0 0 1 6.5 3z"/><path d="M5 18a1.5 1.5 0 0 1 1.5-1.5H19"/><path d="M9 7h6M9 10h4"/></svg>`,
   // Valka Calen — escudo de paladino
   "Valka Calen": `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 2.4v4.8c0 4.5-3 7.9-7 9.6-4-1.7-7-5.1-7-9.6V5.4z"/><path d="M12 7.2v8.2M8.4 11.2h7.2"/></svg>`,
+  // Mestre — coroa
+  Mestre: `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M4.5 9.5 8 12.2 12 6.8 16 12.2 19.5 9.5 18 17.2H6z"/><rect x="5.6" y="18.4" width="12.8" height="2.2" rx="1"/><circle cx="4.5" cy="8" r="1.5"/><circle cx="19.5" cy="8" r="1.5"/><circle cx="12" cy="5.2" r="1.7"/></svg>`,
 };
 
 /* Devolve o SVG do aventureiro, ou as iniciais se ele não tiver ícone. */
 function iconeDe(nome) {
   return ICONES[nome] || escapeHTML(iniciais(nome));
+}
+
+/* O usuário atual é o Mestre? (pode concluir/reabrir missões) */
+function ehMestre() {
+  return usuarioAtual === MESTRE;
 }
 
 function pips(nivel) {
@@ -204,10 +218,14 @@ function pips(nivel) {
 }
 
 /* ------------------------------------------------------------
-   ARMAZENAMENTO DAS MARCAÇÕES
+   ARMAZENAMENTO COMPARTILHADO
    Duas implementações com a mesma interface:
-     - assinar(callback): recebe o objeto { idMissao: { nome: true } }
-     - alternar(idMissao, nome, ligar): marca/desmarca
+     - assinar(callback): recebe { marcacoes, concluidas }
+         marcacoes  = { idMissao: { nome: true } }   (votos)
+         concluidas = { idMissao: true }             (missões cumpridas)
+     - alternarMarcacao(idMissao, nome, ligar): vota/desvota
+     - concluir(idMissao, ligar): marca/desmarca como cumprida
+         (ao concluir, os votos da missão são apagados)
    Usa o Firebase se houver configuração válida; senão, modo local.
    ------------------------------------------------------------ */
 
@@ -223,13 +241,14 @@ function configValida() {
 function criarArmazenamentoLocal() {
   function ler() {
     try {
-      return JSON.parse(localStorage.getItem(CHAVE_MARCACOES_LOCAL)) || {};
+      const d = JSON.parse(localStorage.getItem(CHAVE_DADOS_LOCAL)) || {};
+      return { marcacoes: d.marcacoes || {}, concluidas: d.concluidas || {} };
     } catch {
-      return {};
+      return { marcacoes: {}, concluidas: {} };
     }
   }
   function salvar(dados) {
-    localStorage.setItem(CHAVE_MARCACOES_LOCAL, JSON.stringify(dados));
+    localStorage.setItem(CHAVE_DADOS_LOCAL, JSON.stringify(dados));
   }
   let ouvinte = null;
   return {
@@ -239,15 +258,27 @@ function criarArmazenamentoLocal() {
       callback(ler());
       // sincroniza entre abas do mesmo navegador
       window.addEventListener("storage", (e) => {
-        if (e.key === CHAVE_MARCACOES_LOCAL) callback(ler());
+        if (e.key === CHAVE_DADOS_LOCAL) callback(ler());
       });
     },
-    alternar(idMissao, nome, ligar) {
+    alternarMarcacao(idMissao, nome, ligar) {
       const dados = ler();
-      dados[idMissao] = dados[idMissao] || {};
-      if (ligar) dados[idMissao][nome] = true;
-      else delete dados[idMissao][nome];
-      if (Object.keys(dados[idMissao]).length === 0) delete dados[idMissao];
+      dados.marcacoes[idMissao] = dados.marcacoes[idMissao] || {};
+      if (ligar) dados.marcacoes[idMissao][nome] = true;
+      else delete dados.marcacoes[idMissao][nome];
+      if (Object.keys(dados.marcacoes[idMissao]).length === 0)
+        delete dados.marcacoes[idMissao];
+      salvar(dados);
+      if (ouvinte) ouvinte(dados);
+    },
+    concluir(idMissao, ligar) {
+      const dados = ler();
+      if (ligar) {
+        dados.concluidas[idMissao] = true;
+        delete dados.marcacoes[idMissao]; // missão cumprida perde os votos
+      } else {
+        delete dados.concluidas[idMissao];
+      }
       salvar(dados);
       if (ouvinte) ouvinte(dados);
     },
@@ -257,15 +288,34 @@ function criarArmazenamentoLocal() {
 function criarArmazenamentoFirebase() {
   const app = initializeApp(firebaseConfig);
   const db = getDatabase(app);
+  const estado = { marcacoes: {}, concluidas: {} };
+  let ouvinte = null;
+  const notificar = () => ouvinte && ouvinte(estado);
   return {
     compartilhado: true,
     assinar(callback) {
-      onValue(ref(db, "marcacoes"), (snap) => callback(snap.val() || {}));
+      ouvinte = callback;
+      onValue(ref(db, "marcacoes"), (snap) => {
+        estado.marcacoes = snap.val() || {};
+        notificar();
+      });
+      onValue(ref(db, "concluidas"), (snap) => {
+        estado.concluidas = snap.val() || {};
+        notificar();
+      });
     },
-    alternar(idMissao, nome, ligar) {
+    alternarMarcacao(idMissao, nome, ligar) {
       const alvo = ref(db, `marcacoes/${idMissao}/${nome}`);
       if (ligar) set(alvo, true);
       else remove(alvo);
+    },
+    concluir(idMissao, ligar) {
+      if (ligar) {
+        set(ref(db, `concluidas/${idMissao}`), true);
+        remove(ref(db, `marcacoes/${idMissao}`)); // perde os votos
+      } else {
+        remove(ref(db, `concluidas/${idMissao}`));
+      }
     },
   };
 }
@@ -275,16 +325,16 @@ function criarArmazenamentoFirebase() {
 let usuarioAtual = null;
 let armazenamento = null;
 let ultimasMarcacoes = {};
-const cartoes = []; // { id, indice, el, btn, marcadoresEl }
+let ultimasConcluidas = {};
+const cartoes = []; // { id, indice, el, btn, btnConcluir, marcadoresEl }
 
 function criarCartaz(m, indice) {
   const nivel = Math.min(5, Math.max(1, parseInt(m.perigo, 10) || 1));
   const info = PERIGO_INFO[nivel];
-  const concluida = (m.status || "aberta") === "concluida";
   const id = idDaMissao(m.titulo);
 
   const el = document.createElement("article");
-  el.className = `cartaz ${concluida ? "concluida" : ""}`;
+  el.className = "cartaz";
   el.style.setProperty("--delay", `${indice * 90}ms`);
   el.dataset.id = id;
 
@@ -335,44 +385,70 @@ function criarCartaz(m, indice) {
       <div class="marcadores" aria-live="polite"></div>
     </div>
 
-    ${concluida ? '<div class="carimbo-concluida">CONCLUÍDA</div>' : ""}
+    <div class="cartaz-mestre">
+      <button type="button" class="btn-concluir">
+        <span class="btn-concluir-txt">Marcar como cumprida</span>
+      </button>
+    </div>
+
+    <div class="carimbo-cumprido" aria-hidden="true">
+      <span class="carimbo-titulo">Cumprido</span>
+      <span class="carimbo-sub">Pelos Viajantes Eternos</span>
+    </div>
   `;
 
   const btn = el.querySelector(".btn-marcar");
   const marcadoresEl = el.querySelector(".marcadores");
+  const btnConcluir = el.querySelector(".btn-concluir");
 
   btn.addEventListener("click", () => {
     if (!usuarioAtual || !armazenamento) return;
     const marcados = ultimasMarcacoes[id] || {};
     const jaMarcado = !!marcados[usuarioAtual];
-    armazenamento.alternar(id, usuarioAtual, !jaMarcado);
+    armazenamento.alternarMarcacao(id, usuarioAtual, !jaMarcado);
   });
 
-  cartoes.push({ id, indice, el, btn, marcadoresEl });
+  btnConcluir.addEventListener("click", () => {
+    if (!ehMestre() || !armazenamento) return;
+    const estaConcluida = !!ultimasConcluidas[id];
+    armazenamento.concluir(id, !estaConcluida);
+  });
+
+  cartoes.push({ id, indice, el, btn, btnConcluir, marcadoresEl });
   return el;
 }
 
-/* Atualiza a UI de marcações de cada cartaz e reordena (mais marcados em
-   cima). A reordenação usa a propriedade CSS "order" do grid, então não
-   recria os cartazes nem reinicia as animações. */
-function aplicarMarcacoes(dados) {
-  ultimasMarcacoes = dados || {};
+/* Atualiza toda a UI a partir do estado atual (votos + cumpridas) e
+   reordena. A reordenação usa a propriedade CSS "order" do grid, então
+   não recria os cartazes nem reinicia as animações.
+   Ordem: missões cumpridas no topo (ordem original); depois as abertas,
+   das mais votadas para as menos votadas. */
+function reaplicar() {
+  const lista = cartoes.map((c) => {
+    const concluida = !!ultimasConcluidas[c.id];
+    const marcados = concluida
+      ? []
+      : Object.keys(ultimasMarcacoes[c.id] || {});
+    return { c, concluida, marcados, n: marcados.length };
+  });
 
-  // ordena: mais marcações primeiro; empate mantém a ordem original
-  const ranking = cartoes
-    .map((c) => ({
-      c,
-      n: Object.keys(ultimasMarcacoes[c.id] || {}).length,
-    }))
-    .sort((a, b) => b.n - a.n || a.c.indice - b.c.indice);
+  lista.sort((a, b) => {
+    if (a.concluida !== b.concluida) return a.concluida ? -1 : 1;
+    if (!a.concluida && b.n !== a.n) return b.n - a.n;
+    return a.c.indice - b.c.indice;
+  });
 
-  ranking.forEach(({ c, n }, posicao) => {
+  // missão aberta mais votada (para o destaque dourado)
+  const topAberta = lista.find((x) => !x.concluida && x.n > 0);
+
+  lista.forEach((item, posicao) => {
+    const { c, concluida, marcados } = item;
     c.el.style.order = String(posicao);
+    c.el.classList.toggle("concluida", concluida);
+    c.el.classList.toggle("destaque", item === topAberta);
 
-    const marcados = Object.keys(ultimasMarcacoes[c.id] || {});
+    // botão votar
     const euMarquei = usuarioAtual && marcados.includes(usuarioAtual);
-
-    // botão
     c.btn.classList.toggle("ativo", !!euMarquei);
     c.btn.setAttribute("aria-pressed", euMarquei ? "true" : "false");
     c.btn.querySelector(".btn-marcar-txt").textContent = euMarquei
@@ -398,15 +474,28 @@ function aplicarMarcacoes(dados) {
         )
         .join("");
       const rotulo =
-        marcados.length === 1 ? "1 interessado" : `${marcados.length} interessados`;
+        marcados.length === 1
+          ? "1 interessado"
+          : `${marcados.length} interessados`;
       c.marcadoresEl.innerHTML =
         `<span class="marcadores-contagem">${rotulo}</span>` +
         `<span class="marcadores-chips">${chips}</span>`;
     }
 
-    // destaque para a missão mais marcada (com pelo menos 1)
-    c.el.classList.toggle("destaque", n > 0 && posicao === 0);
+    // botão do Mestre (concluir / reabrir)
+    c.btnConcluir.classList.toggle("reabrir", concluida);
+    c.btnConcluir.querySelector(".btn-concluir-txt").textContent = concluida
+      ? "Reabrir missão"
+      : "Marcar como cumprida";
   });
+
+  // contador de missões ainda abertas
+  const contador = document.getElementById("contador");
+  if (contador) {
+    const abertas = lista.filter((x) => !x.concluida).length;
+    contador.textContent =
+      abertas === 1 ? "1 missão disponível" : `${abertas} missões disponíveis`;
+  }
 }
 
 /* ------------------------------------------------------------
@@ -436,10 +525,10 @@ function entrar(nome) {
   try {
     localStorage.setItem(CHAVE_USUARIO, nome);
   } catch {}
+  document.body.classList.toggle("modo-mestre", ehMestre());
   atualizarBadgeUsuario();
   document.getElementById("loginOverlay").hidden = true;
-  // reaplica para refletir "minhas" marcações no novo usuário
-  aplicarMarcacoes(ultimasMarcacoes);
+  reaplicar(); // reflete "minhas" marcações e os poderes do novo usuário
 }
 
 function mostrarLogin() {
@@ -450,7 +539,11 @@ function atualizarBadgeUsuario() {
   const badge = document.getElementById("usuarioAtual");
   const nomeEl = document.getElementById("usuarioNome");
   if (usuarioAtual) {
-    nomeEl.textContent = usuarioAtual;
+    nomeEl.innerHTML = ehMestre()
+      ? `<span class="badge-coroa">${iconeDe(MESTRE)}</span>${escapeHTML(
+          usuarioAtual
+        )}`
+      : escapeHTML(usuarioAtual);
     badge.hidden = false;
   } else {
     badge.hidden = true;
@@ -462,8 +555,9 @@ function trocarUsuario() {
   try {
     localStorage.removeItem(CHAVE_USUARIO);
   } catch {}
+  document.body.classList.remove("modo-mestre");
   atualizarBadgeUsuario();
-  aplicarMarcacoes(ultimasMarcacoes);
+  reaplicar();
   mostrarLogin();
 }
 
@@ -471,21 +565,11 @@ function trocarUsuario() {
 
 function inicializar() {
   const quadro = document.getElementById("quadro");
-  const contador = document.getElementById("contador");
   if (!quadro) return;
 
   // renderiza os cartazes uma única vez
   quadro.innerHTML = "";
   MISSOES.forEach((m, i) => quadro.appendChild(criarCartaz(m, i)));
-
-  const abertas = MISSOES.filter(
-    (m) => (m.status || "aberta") !== "concluida"
-  );
-  if (contador) {
-    const n = abertas.length;
-    contador.textContent =
-      n === 1 ? "1 missão disponível" : `${n} missões disponíveis`;
-  }
 
   // login lembrado?
   montarLogin();
@@ -495,6 +579,7 @@ function inicializar() {
   } catch {}
   if (salvo && AVENTUREIROS.includes(salvo)) {
     usuarioAtual = salvo;
+    document.body.classList.toggle("modo-mestre", ehMestre());
     atualizarBadgeUsuario();
   } else {
     mostrarLogin();
@@ -502,6 +587,9 @@ function inicializar() {
   document
     .getElementById("trocarUsuario")
     .addEventListener("click", trocarUsuario);
+
+  // primeira pintura (contador/estado) antes de chegar dado remoto
+  reaplicar();
 
   // armazenamento (Firebase ou local) + aviso de modo
   if (configValida()) {
@@ -518,7 +606,11 @@ function inicializar() {
     document.getElementById("avisoOffline").hidden = false;
   }
 
-  armazenamento.assinar(aplicarMarcacoes);
+  armazenamento.assinar((dados) => {
+    ultimasMarcacoes = dados.marcacoes || {};
+    ultimasConcluidas = dados.concluidas || {};
+    reaplicar();
+  });
 }
 
 /* scripts type="module" já rodam com o DOM pronto */

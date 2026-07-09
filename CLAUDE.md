@@ -9,6 +9,18 @@ no domínio `guilda.raynathus.com.br` (arquivo `CNAME`). É um quadro de missõe
 de RPG com tema pergaminho/medieval. Deploy é automático: **todo push na
 `main` publica**. Não há etapa de build nem dependências de npm.
 
+## Endereços e repositório
+
+- **Site ao vivo:** https://guilda.raynathus.com.br/
+- **Repo GitHub:** https://github.com/RaymundoJMSN/guilda-mineradores
+- **Remote:** `origin` = `git@github.com:RaymundoJMSN/guilda-mineradores.git`
+  (SSH). Branch única: **`main`**.
+- ⚠️ **A verdade está no GitHub, não no clone local.** O site é editado por
+  várias sessões/dispositivos, então este clone costuma ficar **atrás** do
+  remote (já aconteceu de uma tela inteira — o login "Quem é você?" — existir
+  só no GitHub). **Antes de mexer, sempre `git fetch` + `git pull --rebase
+  origin main`.** Confira o deploy depois com `gh run list`.
+
 ## Arquivos
 
 - `index.html` — markup: overlay de login, cabeçalho (brasão SVG + selo do
@@ -21,6 +33,26 @@ de RPG com tema pergaminho/medieval. Deploy é automático: **todo push na
 - `firebase-config.js` — exporta `firebaseConfig`. Único lugar a editar para
   configurar/desligar o Firebase.
 - `favicon.svg` — brasão (escudo + 2 picaretas cruzadas) para a aba.
+
+## Mapa do `missions.js` (procure pelo símbolo, linhas mudam)
+
+Dados no topo, motor embaixo. Ordem atual:
+
+- imports do Firebase (CDN `gstatic` 10.12.5) + `firebaseConfig` local.
+- `const MISSOES` — lista de missões (edite aqui para add/remover missão).
+- `const MESTRE`, `const AVENTUREIROS` — personagens do login.
+- `const ICONES` — SVG por nome (add personagem = entrada aqui + `AVENTUREIROS`).
+- `PERIGO_INFO`, `CHAVE_USUARIO`, `CHAVE_DADOS_LOCAL` — constantes.
+- `idDaMissao()` — slug estável do título (chave do Firebase).
+- `iconeDe()` / `iniciais()` — ícone ou fallback de iniciais.
+- `criarArmazenamentoLocal()` / `criarArmazenamentoFirebase()` — storage
+  (mesma interface); `configValida()` escolhe qual.
+- `criarCartaz()` — monta cada cartaz **uma vez** (listeners dos botões).
+- `reaplicar()` — atualiza tudo e reordena via CSS `order` (não recria).
+- `montarLogin()` / `entrar()` / `trocarUsuario()` / `atualizarBadgeUsuario()`
+  — overlay de login e selo do usuário.
+- `inicializar()` (chamado no fim) — pinta cartazes, restaura login, assina o
+  storage.
 
 ## Como funciona
 

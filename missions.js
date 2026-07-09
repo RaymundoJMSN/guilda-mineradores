@@ -137,6 +137,7 @@ const MISSOES = [
 const MESTRE = "Mestre";
 const AVENTUREIROS = [
   "Behrtio",
+  "Bjorn Stevenson",
   "Lydia Alnari",
   "Mist Yavallan",
   "Valka Calen",
@@ -189,6 +190,8 @@ function iniciais(nome) {
 const ICONES = {
   // Behrtio — caveira
   Behrtio: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3C8 3 5 6 5 9.8c0 2 .9 3.8 2.3 5 .4.4.7.9.7 1.5V18c0 .6.4 1 1 1h8c.6 0 1-.4 1-1v-1.7c0-.6.3-1.1.7-1.5C19.1 13.6 20 11.8 20 9.8 20 6 17 3 12 3z"/><circle cx="9.2" cy="11" r="1.6" fill="currentColor" stroke="none"/><circle cx="14.8" cy="11" r="1.6" fill="currentColor" stroke="none"/><path d="M12 13.2l-.9 1.6h1.8z" fill="currentColor" stroke="none"/><path d="M10 19v-2M14 19v-2M12 19v-2.4"/></svg>`,
+  // Bjorn Stevenson — machado e marreta cruzados
+  "Bjorn Stevenson": `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><g transform="rotate(-45 12 12)"><rect x="11.25" y="5.5" width="1.5" height="14" rx="0.75"/><path d="M12 2.8 Q16.9 3.2 17.5 8.4 Q14.2 6.6 12 7.4 Q9.8 6.6 6.5 8.4 Q7.1 3.2 12 2.8 Z"/></g><g transform="rotate(45 12 12)"><rect x="11.25" y="5.5" width="1.5" height="14" rx="0.75"/><rect x="8.1" y="3.2" width="7.8" height="3.8" rx="0.9"/></g></svg>`,
   // Lydia Alnari — alaúde
   "Lydia Alnari": `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="15.2" r="5.4"/><circle cx="9" cy="15.2" r="1.3"/><path d="M12.9 11.4 18.6 5.7"/><path d="M17.2 3.6 21 7.4l-1.9 1.1-2-2z" fill="currentColor" stroke="none"/></svg>`,
   // Mist Yavallan — livro

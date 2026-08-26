@@ -424,8 +424,8 @@ function criarCartaz(m, indice) {
 /* Atualiza toda a UI a partir do estado atual (votos + cumpridas) e
    reordena. A reordenação usa a propriedade CSS "order" do grid, então
    não recria os cartazes nem reinicia as animações.
-   Ordem: missões cumpridas no topo (ordem original); depois as abertas,
-   das mais votadas para as menos votadas. */
+   Ordem: missões abertas primeiro, das mais votadas para as menos
+   votadas; as cumpridas ficam por último (ordem original). */
 function reaplicar() {
   const lista = cartoes.map((c) => {
     const concluida = !!ultimasConcluidas[c.id];
@@ -438,7 +438,7 @@ function reaplicar() {
   });
 
   lista.sort((a, b) => {
-    if (a.concluida !== b.concluida) return a.concluida ? -1 : 1;
+    if (a.concluida !== b.concluida) return a.concluida ? 1 : -1;
     if (!a.concluida && b.n !== a.n) return b.n - a.n;
     return a.c.indice - b.c.indice;
   });

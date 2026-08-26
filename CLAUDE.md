@@ -82,8 +82,8 @@ Dados no topo, motor embaixo. Ordem atual:
   cartazes: atualiza textos/crachás, alterna classes (`concluida`, `destaque`,
   botão `ativo`/`reabrir`) e reordena via **CSS `order`** nos itens do grid
   (sem reiniciar animações). Também atualiza o contador.
-- Ordem: cumpridas no topo (ordem original) → abertas por nº de votos (desc)
-  → empate pela ordem original (`indice`).
+- Ordem: abertas por nº de votos (desc) → empate pela ordem original
+  (`indice`) → cumpridas por último (ordem original).
 - Concluir uma missão: `concluir(id, true)` apaga os votos dela e marca em
   `concluidas`; o CSS esconde a votação (`.cartaz.concluida .cartaz-grupo`) e
   mostra o selo `.carimbo-cumprido` ("Cumprido / Pelos Viajantes Eternos").
